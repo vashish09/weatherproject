@@ -1,0 +1,16 @@
+myenv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+.env
+.env.*
+
+db.sqlite3
+*.sqlite3
+
+staticfiles/
+weatherproject/staticfiles/
+
+.DS_Store
+Thumbs.db
