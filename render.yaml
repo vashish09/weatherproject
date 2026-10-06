@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: weatherproject
+    env: python
+    branch: main
+    buildCommand: ./build.sh
+    startCommand: cd weatherproject && gunicorn weatherproject.wsgi:application
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: OPENWEATHER_API_KEY
+        sync: false
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com,localhost,127.0.0.1"

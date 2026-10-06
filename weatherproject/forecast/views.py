@@ -1,7 +1,6 @@
-# import necessary libraries
 import os
+from pathlib import Path
 from django.shortcuts import render
-import re
 import requests
 import pandas as pd
 import numpy as np
@@ -12,31 +11,43 @@ from sklearn.metrics import accuracy_score, classification_report
 from datetime import datetime, timedelta
 import pytz
 
-API_KEY = '83332e8b60f969b5d647ace09737b5aa'
+API_KEY = os.getenv('OPENWEATHER_API_KEY', '')
 BASE_URL = 'https://api.openweathermap.org/data/2.5/'
+CSV_PATH = Path(__file__).resolve().parents[2] / 'weather.csv'
 
 # current data
 def get_current_weather(city):
-    url = f"{BASE_URL}weather?q={city}&appid={API_KEY}&units=metrics"
-    response = requests.get(url)
-    data = response.json()
-    if response.status_code == 200:
+    if not API_KEY:
+        return None
+
+    try:
+        response = requests.get(
+            f"{BASE_URL}weather",
+            params={'q': city, 'appid': API_KEY, 'units': 'metric'},
+            timeout=10,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except (requests.RequestException, ValueError):
+        return None
+
+    try:
         return {
             'city': data['name'],
-            'current_temperature': round(data['main']['temp'] - 273.15),
-            'feels_like': round(data['main']['feels_like'] - 273.15),
-            'temp_min': round(data['main']['temp_min'] - 273.15),
-            'temp_max': round(data['main']['temp_max'] - 273.15),
+            'current_temperature': round(data['main']['temp']),
+            'feels_like': round(data['main']['feels_like']),
+            'temp_min': round(data['main']['temp_min']),
+            'temp_max': round(data['main']['temp_max']),
             'humidity': data['main']['humidity'],
             'description': data['weather'][0]['description'],
             'country': data['sys']['country'],
-            'wind_gust_dir': data['wind']['deg'],
+            'wind_gust_dir': data['wind'].get('deg', 0),
             'pressure': data['main']['pressure'],
             'wind_gust_speed': data['wind']['speed'],
             'clouds': data['clouds']['all'],
             'visibility': data['visibility'],
         }
-    else:
+    except (KeyError, IndexError, TypeError):
         return None
 
 # read historical data
@@ -108,8 +119,7 @@ def weather_view(request):
             print(f"Error: Could not retrieve weather data for city '{city}'. Please check the city name.")
             return render(request, 'weather.html')
 
-        csv_path = os.path.join('C:\\Machine learning\\weather.csv')
-        historical_data = read_historic_data(csv_path)
+        historical_data = read_historic_data(CSV_PATH)
         X, Y, le = prepare_data(historical_data)
         rain_model = train_rain_model(X, Y)
 
