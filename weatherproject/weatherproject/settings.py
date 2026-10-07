@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from pathlib import Path
 
+import dj_database_url
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -19,13 +21,31 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
+def env_bool(name, default=False):
+    return os.getenv(name, str(default)).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def env_list(name, default=""):
+    return [item.strip() for item in os.getenv(name, default).split(",") if item.strip()]
+
+
+def env_int(name, default=0):
+    return int(os.getenv(name, default))
+
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-i!x$^d4oocfc#qhz21o7=5lf1g$h$5#c!9m7i_nu=m1egfnu8^'
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-me-in-development-only')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env_bool('DEBUG', True)
 
-ALLOWED_HOSTS = []
+render_hostname = os.getenv('RENDER_EXTERNAL_HOSTNAME')
+default_allowed_hosts = '127.0.0.1,localhost'
+if render_hostname:
+    default_allowed_hosts = f'{default_allowed_hosts},{render_hostname}'
+ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', default_allowed_hosts)
+default_csrf_origins = [f'https://{render_hostname}'] if render_hostname else []
+CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(default_csrf_origins + env_list('CSRF_TRUSTED_ORIGINS')))
 
 
 # Application definition
@@ -42,6 +62,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -73,12 +94,22 @@ WSGI_APPLICATION = 'weatherproject.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+DATABASE_URL = os.getenv('DATABASE_URL')
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=600,
+            ssl_require=not DEBUG,
+        )
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -116,16 +147,20 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = '/static/'
-
-# The directory where 'collectstatic' will put all static files for deployment
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-
-# Additional static files directory (your custom static folder at project root)
-
-STATICFILES_DIRS = [BASE_DIR / 'static']# STATICFILES_DIRS = [BASE_DIR / 'static']
+STATICFILES_DIRS = [BASE_DIR / 'static']
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-STATICFILES_DIRS = [BASE_DIR / 'static']# STATICFILES_DIRS = [BASE_DIR / 'static']
+
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', True)
+    SECURE_HSTS_SECONDS = env_int('SECURE_HSTS_SECONDS', 3600)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', True)
+    SECURE_HSTS_PRELOAD = env_bool('SECURE_HSTS_PRELOAD', True)
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True

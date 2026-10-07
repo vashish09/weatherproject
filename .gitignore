@@ -1,0 +1,28 @@
+# Virtual environments
+myenv/
+.venv/
+venv/
+env/
+
+# Python cache and build artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.pytest_cache/
+
+# Local environment and secrets
+.env
+.env.*
+
+# Local databases/runtime files
+*.sqlite3
+
+# Collected static files
+weatherproject/staticfiles/
+
+# OS/editor noise
+.DS_Store
+*.log
