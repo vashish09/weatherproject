@@ -16,6 +16,7 @@ __pycache__/
 # Local environment and secrets
 .env
 .env.*
+!.env.example
 
 # Local databases/runtime files
 *.sqlite3
