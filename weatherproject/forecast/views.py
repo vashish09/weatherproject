@@ -1,5 +1,7 @@
 # import necessary libraries
+import logging
 import os
+from pathlib import Path
 from django.shortcuts import render
 import re
 import requests
@@ -12,21 +14,44 @@ from sklearn.metrics import accuracy_score, classification_report
 from datetime import datetime, timedelta
 import pytz
 
-API_KEY = '83332e8b60f969b5d647ace09737b5aa'
 BASE_URL = 'https://api.openweathermap.org/data/2.5/'
+OPENWEATHER_API_KEY_ENV = 'OPENWEATHER_API_KEY'
+REQUEST_TIMEOUT = 10
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+WEATHER_DATASET_PATH = PROJECT_ROOT / 'weather.csv'
+logger = logging.getLogger(__name__)
+
+
+def build_openweather_url(city, api_key):
+    return f"{BASE_URL}weather?q={city}&appid={api_key}&units=metric"
 
 # current data
 def get_current_weather(city):
-    url = f"{BASE_URL}weather?q={city}&appid={API_KEY}&units=metrics"
-    response = requests.get(url)
-    data = response.json()
-    if response.status_code == 200:
+    api_key = os.environ.get(OPENWEATHER_API_KEY_ENV)
+    if not api_key:
+        logger.error("Missing required environment variable: OPENWEATHER_API_KEY")
+        return None
+
+    url = build_openweather_url(city, api_key)
+
+    try:
+        response = requests.get(url, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+        data = response.json()
+    except requests.exceptions.RequestException as exc:
+        logger.warning("OpenWeather request failed for city '%s': %s", city, exc)
+        return None
+    except ValueError:
+        logger.warning("OpenWeather returned malformed JSON for city '%s'", city)
+        return None
+
+    try:
         return {
             'city': data['name'],
-            'current_temperature': round(data['main']['temp'] - 273.15),
-            'feels_like': round(data['main']['feels_like'] - 273.15),
-            'temp_min': round(data['main']['temp_min'] - 273.15),
-            'temp_max': round(data['main']['temp_max'] - 273.15),
+            'current_temperature': round(data['main']['temp']),
+            'feels_like': round(data['main']['feels_like']),
+            'temp_min': round(data['main']['temp_min']),
+            'temp_max': round(data['main']['temp_max']),
             'humidity': data['main']['humidity'],
             'description': data['weather'][0]['description'],
             'country': data['sys']['country'],
@@ -36,7 +61,8 @@ def get_current_weather(city):
             'clouds': data['clouds']['all'],
             'visibility': data['visibility'],
         }
-    else:
+    except (KeyError, TypeError, IndexError):
+        logger.warning("OpenWeather response missing expected weather fields for city '%s'", city)
         return None
 
 # read historical data
@@ -105,11 +131,14 @@ def weather_view(request):
         current_weather = get_current_weather(city)
 
         if current_weather is None:
-            print(f"Error: Could not retrieve weather data for city '{city}'. Please check the city name.")
+            logger.warning("Could not retrieve weather data for city '%s'.", city)
             return render(request, 'weather.html')
 
-        csv_path = os.path.join('C:\\Machine learning\\weather.csv')
-        historical_data = read_historic_data(csv_path)
+        if not WEATHER_DATASET_PATH.exists():
+            logger.error("Dataset not found at path: %s", WEATHER_DATASET_PATH)
+            return render(request, 'weather.html')
+
+        historical_data = read_historic_data(WEATHER_DATASET_PATH)
         X, Y, le = prepare_data(historical_data)
         rain_model = train_rain_model(X, Y)
 

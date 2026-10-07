@@ -23,6 +23,7 @@ Optional local environment variables:
 - `ALLOWED_HOSTS` (comma-separated, defaults to localhost values)
 - `CSRF_TRUSTED_ORIGINS` (comma-separated origins)
 - `DATABASE_URL` (if not set, SQLite is used)
+- `OPENWEATHER_API_KEY` (required for weather API calls)
 
 ## Render deployment (Blueprint)
 
@@ -40,7 +41,9 @@ This repository includes `render.yaml` and `build.sh` for deployment.
 1. Push this repository to GitHub.
 2. In Render, choose **New +** → **Blueprint**.
 3. Select this repository and deploy.
-4. After deployment completes, Render provides the live service URL in the dashboard.
+4. In the Render web service, add `OPENWEATHER_API_KEY` under **Environment Variables** with your OpenWeather API key.
+5. Trigger a redeploy so the new environment variable is loaded.
+6. After deployment completes, Render provides the live service URL in the dashboard.
 
 ## Notes
 
