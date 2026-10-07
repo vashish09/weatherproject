@@ -1,5 +1,6 @@
 # import necessary libraries
 import os
+from django.conf import settings
 from django.shortcuts import render
 import re
 import requests
@@ -12,12 +13,12 @@ from sklearn.metrics import accuracy_score, classification_report
 from datetime import datetime, timedelta
 import pytz
 
-API_KEY = '83332e8b60f969b5d647ace09737b5aa'
+API_KEY = os.getenv("OPENWEATHER_API_KEY")
 BASE_URL = 'https://api.openweathermap.org/data/2.5/'
 
 # current data
 def get_current_weather(city):
-    url = f"{BASE_URL}weather?q={city}&appid={API_KEY}&units=metrics"
+    url = f"{BASE_URL}weather?q={city}&appid={API_KEY}&units=metric"
     response = requests.get(url)
     data = response.json()
     if response.status_code == 200:
@@ -66,7 +67,6 @@ def train_rain_model(X, Y):
 
     Y_pred = model.predict(X_test)
 
-    
     accuracy = accuracy_score(Y_test, Y_pred)
     print(f"Rain Prediction Model Accuracy: {accuracy:.2f}")
     print(classification_report(Y_test, Y_pred))
@@ -108,7 +108,7 @@ def weather_view(request):
             print(f"Error: Could not retrieve weather data for city '{city}'. Please check the city name.")
             return render(request, 'weather.html')
 
-        csv_path = os.path.join('C:\\Machine learning\\weather.csv')
+        csv_path = settings.BASE_DIR.parent / 'weather.csv'
         historical_data = read_historic_data(csv_path)
         X, Y, le = prepare_data(historical_data)
         rain_model = train_rain_model(X, Y)
