@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: weatherproject
+    env: python
+    plan: free
+    buildCommand: ./build.sh
+    startCommand: cd weatherproject && gunicorn weatherproject.wsgi:application
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.10
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "false"
+      - key: ALLOWED_HOSTS
+        value: .onrender.com
+      - key: CSRF_TRUSTED_ORIGINS
+        value: https://*.onrender.com
+      - key: DATABASE_URL
+        fromDatabase:
+          name: weatherproject-db
+          property: connectionString
+
+databases:
+  - name: weatherproject-db
+    plan: free
+    databaseName: weatherproject
+    user: weatherproject
